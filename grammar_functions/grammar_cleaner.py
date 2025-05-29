@@ -6,7 +6,7 @@ def clean_grammar(grammar):
     start_symbol = grammar["start_symbol"]
     productions = grammar["productions"]
 
-    # encontrar variáveis alcançáveis a partir do símbolo inicial
+    # Remover variáveis inalcançáveis
     reachable = set()
     queue = [start_symbol]
 
@@ -20,21 +20,79 @@ def clean_grammar(grammar):
                 if symbol in variables and symbol not in reachable:
                     queue.append(symbol)
 
-    # Mantem apenas produções cujos LHS são alcançáveis
-    cleaned_productions = {
-        var: [prod for prod in rhs if all(
-            sym not in variables or sym in reachable for sym in prod)]
+    # Mantém apenas as produções com LHS acessíveis
+    productions = {
+        var: [prod for prod in rhs if all(sym not in variables or sym in reachable for sym in prod)]
         for var, rhs in productions.items()
         if var in reachable
     }
 
-    # Remove produções vazias
-    cleaned_productions = {k: v for k, v in cleaned_productions.items() if v}
+    # Remover produções vazias (ε-produções)
+    nullable = set()
+    changed = True
+    while changed:
+        changed = False
+        for var, prods in productions.items():
+            for prod in prods:
+                if all(sym in nullable or sym == '' for sym in prod):
+                    if var not in nullable:
+                        nullable.add(var)
+                        changed = True
+
+    # Criar novas produções sem os símbolos anuláveis
+    new_productions = {}
+    for var, prods in productions.items():
+        new_productions[var] = []
+        for prod in prods:
+            subsets = [[]]
+
+            for symbol in prod:
+                if symbol in nullable:
+                    subsets += [s + [symbol] for s in subsets]
+                else:
+                    for s in subsets:
+                        s.append(symbol)
+
+            for s in subsets:
+                if s != []:  # Remove produção vazia
+                    if s not in new_productions[var]:
+                        new_productions[var].append(s)
+
+    productions = new_productions
+
+    # Se o start_symbol é anulável, podemos opcionalmente adicionar a produção S → ε
+    # (Isso depende se você quer permitir ou não)
+
+    # ---------- PASSO 3: Remover produções unitárias ----------
+    for var in productions:
+        unit_productions = []
+        direct_productions = []
+
+        for prod in productions[var]:
+            if len(prod) == 1 and prod[0] in variables:
+                unit_productions.append(prod[0])
+            else:
+                direct_productions.append(prod)
+
+        productions[var] = direct_productions
+
+        # Expandir as unitárias
+        while unit_productions:
+            target = unit_productions.pop()
+            for prod in productions.get(target, []):
+                if len(prod) == 1 and prod[0] in variables and prod[0] not in unit_productions:
+                    unit_productions.append(prod[0])
+                elif prod not in productions[var]:
+                    productions[var].append(prod)
+
+    # ---------- PASSO FINAL: Remover variáveis sem produções ----------
+    productions = {k: v for k, v in productions.items() if v}
+    cleaned_variables = set(productions.keys())
 
     return {
-        "variables": sorted(reachable),
+        "variables": sorted(cleaned_variables),
         "start_symbol": start_symbol,
-        "productions": cleaned_productions
+        "productions": productions
     }
 
 
