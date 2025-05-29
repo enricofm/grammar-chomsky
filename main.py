@@ -1,9 +1,9 @@
-from grammar_parser import parse_grammar
+from grammar_functions.grammar_cleaner import clean
 from pprint import pprint
 
 
 def main():
-    grammar = parse_grammar("input.txt")
+    grammar = clean("input.txt")
     return pprint(grammar)
 
 
