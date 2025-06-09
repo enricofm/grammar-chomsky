@@ -1,111 +1,82 @@
-from grammar_functions.grammar_parser import parse_grammar
+from itertools import chain, combinations
 
 
-def clean_grammar(grammar):
-    variables = set(grammar["variables"])
-    start_symbol = grammar["start_symbol"]
-    productions = grammar["productions"]
+def add_new_start_symbol(grammar):
+    original_start = grammar["simbolo_inicial"]
 
-    # Remover variáveis inalcançáveis
-    reachable = set()
-    queue = [start_symbol]
+    # gera novo simbolo inicial
+    new_start = "S0"
+    while new_start in grammar["variaveis"] or new_start in grammar["producoes"]:
+        new_start += "0"
 
-    while queue:
-        current = queue.pop()
-        if current in reachable:
-            continue
-        reachable.add(current)
-        for prod in productions.get(current, []):
-            for symbol in prod:
-                if symbol in variables and symbol not in reachable:
-                    queue.append(symbol)
+    grammar["variaveis"].insert(0, new_start)
+    grammar["simbolo_inicial"] = new_start
 
-    # Mantém apenas as produções com LHS acessíveis
-    productions = {
-        var: [prod for prod in rhs if all(sym not in variables or sym in reachable for sym in prod)]
-        for var, rhs in productions.items()
-        if var in reachable
-    }
+    grammar["producoes"][new_start] = [[original_start]]
 
-    # Remover produções vazias (ε-produções)
+    return grammar
+
+
+def find_nullable_variables(grammar):
     nullable = set()
+
     changed = True
     while changed:
         changed = False
-        for var, prods in productions.items():
-            for prod in prods:
-                if all(sym in nullable or sym == '' for sym in prod):
-                    if var not in nullable:
-                        nullable.add(var)
+        for left, rights in grammar["producoes"].items():
+            for right in rights:
+                if right == ['h'] or all(symbol in nullable for symbol in right):
+                    if left not in nullable:
+                        nullable.add(left)
                         changed = True
+    return nullable
 
-    # Criar novas produções sem os símbolos anuláveis
+
+def powerset(iterable):
+    s = list(iterable)
+    return chain.from_iterable(combinations(s, r) for r in range(1, len(s)+1))
+
+
+def remove_epsilon_productions(grammar):
+    nullable = find_nullable_variables(grammar)
     new_productions = {}
-    for var, prods in productions.items():
-        new_productions[var] = []
-        for prod in prods:
-            subsets = [[]]
 
-            for symbol in prod:
-                if symbol in nullable:
-                    subsets += [s + [symbol] for s in subsets]
-                else:
-                    for s in subsets:
-                        s.append(symbol)
+    for left, rights in grammar["producoes"].items():
+        new_rights = set()
+        for right in rights:
+            if right == ['h']:
+                continue
 
-            for s in subsets:
-                if s != []:  # Remove produção vazia
-                    if s not in new_productions[var]:
-                        new_productions[var].append(s)
+            # acha posicao das variaveis que geram producoes vazias
+            nullable_positions = [i for i, symbol in enumerate(
+                right) if symbol in nullable]
 
-    productions = new_productions
+            # gera todas as combinacoes da remocao de variaveis vazias
+            subsets = list(powerset(nullable_positions))
 
-    # Se o start_symbol é anulável, podemos opcionalmente adicionar a produção S → ε
-    # (Isso depende se você quer permitir ou não)
+            for subset in subsets:
+                if len(subset) == len(right):
+                    continue
 
-    # ---------- PASSO 3: Remover produções unitárias ----------
-    for var in productions:
-        unit_productions = []
-        direct_productions = []
+                new_right = [symbol for i, symbol in enumerate(
+                    right) if i not in subset]
+                if new_right:
+                    new_rights.add(tuple(new_right))
 
-        for prod in productions[var]:
-            if len(prod) == 1 and prod[0] in variables:
-                unit_productions.append(prod[0])
-            else:
-                direct_productions.append(prod)
+            # mantem producao inicial
+            new_rights.add(tuple(right))
 
-        productions[var] = direct_productions
+        new_productions[left] = [list(prod) for prod in new_rights]
 
-        # Expandir as unitárias
-        while unit_productions:
-            target = unit_productions.pop()
-            for prod in productions.get(target, []):
-                if len(prod) == 1 and prod[0] in variables and prod[0] not in unit_productions:
-                    unit_productions.append(prod[0])
-                elif prod not in productions[var]:
-                    productions[var].append(prod)
+    # se o simbolo inicial deriva vazio, mantem h
+    if grammar["simbolo_inicial"] in nullable:
+        new_productions[grammar["simbolo_inicial"]].append(['h'])
 
-    # ---------- PASSO FINAL: Remover variáveis sem produções ----------
-    productions = {k: v for k, v in productions.items() if v}
-    cleaned_variables = set(productions.keys())
-
-    return {
-        "variables": sorted(cleaned_variables),
-        "start_symbol": start_symbol,
-        "productions": productions
-    }
+    grammar["producoes"] = new_productions
+    return grammar
 
 
-def generate_output(grammar, file_path):
-    with open(file_path, "w") as f:
-        f.write(" ".join(grammar["variables"]) + "\n")
-        f.write(grammar["start_symbol"] + "\n")
-        for left, right_list in grammar["productions"].items():
-            for right in right_list:
-                f.write(f"{left} {' '.join(right)}\n")
-
-
-def clean(file_name):
-    initial_grammar = parse_grammar(file_name)
-    cleaned = clean_grammar(initial_grammar)
-    generate_output(cleaned, "output_clean.txt")
+def limpar_gramatica(grammar):
+    new_grammar = add_new_start_symbol(grammar)
+    new_grammar = remove_epsilon_productions(new_grammar)
+    return new_grammar

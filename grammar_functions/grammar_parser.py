@@ -1,18 +1,18 @@
 def parse_grammar(file_path):
     grammar = {
-        "variables": [],
-        "start_symbol": "",
-        "productions": {}
+        "variaveis": [],
+        "simbolo_inicial": "",
+        "producoes": {}
     }
 
     with open(file_path, "r") as file:
         lines = [line.strip() for line in file if line.strip()]
 
     # variáveis
-    grammar["variables"] = lines[0].split()
+    grammar["variaveis"] = lines[0].split()
 
     # símbolo inicial
-    grammar["start_symbol"] = lines[1]
+    grammar["simbolo_inicial"] = lines[1]
 
     # produções
     for line in lines[2:]:
@@ -20,9 +20,9 @@ def parse_grammar(file_path):
         left = parts[0]
         right = parts[1:]
 
-        if left not in grammar["productions"]:
-            grammar["productions"][left] = []
+        if left not in grammar["producoes"]:
+            grammar["producoes"][left] = []
 
-        grammar["productions"][left].append(right)
+        grammar["producoes"][left].append(right)
 
     return grammar
