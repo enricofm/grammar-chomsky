@@ -120,34 +120,41 @@ def replace_terminals(grammar):
 def binarize_productions(grammar):
     prods = grammar["producoes"]
     new_prods = {}
+    tail_map = {}
     counter = 0
 
-    # Process each production
+    def get_or_create(pair):
+        nonlocal counter
+        if pair not in tail_map:
+            var = f"X{counter}"
+            counter += 1
+            tail_map[pair] = var
+            # register new variable and its production
+            grammar["variaveis"].append(var)
+            new_prods.setdefault(var, []).append(list(pair))
+        return tail_map[pair]
+
     for left, rights in prods.items():
         for right in rights:
             if len(right) <= 2 or right == ['h']:
-                # keep as is
                 new_prods.setdefault(left, []).append(right)
             else:
-                # break into binary productions
-                symbols = right
-                prev = left
-                # for each symbol except last two
-                for i in range(len(symbols) - 2):
-                    a = symbols[i]
-                    # create a new variable for the rest
-                    X = f"X{counter}"
-                    counter += 1
-                    # register new variable
-                    grammar["variaveis"].append(X)
-                    # define production prev -> a X
-                    new_prods.setdefault(prev, []).append([a, X])
-                    prev = X
-                # final pair
-                new_prods.setdefault(prev, []).append(
-                    [symbols[-2], symbols[-1]])
-
-    # assign back
+                # build chain from rightmost pair
+                prev = None
+                for i in range(len(right) - 1, 0, -1):
+                    if prev is None:
+                        # rightmost pair
+                        pair = (right[i-1], right[i])
+                        prev = get_or_create(pair)
+                    else:
+                        # intermediate pair
+                        pair = (right[i-1], prev)
+                        if i-1 == 0:
+                            # head binary rule
+                            new_prods.setdefault(
+                                left, []).append([right[0], prev])
+                        else:
+                            prev = get_or_create(pair)
     grammar["producoes"] = new_prods
     return grammar
 
