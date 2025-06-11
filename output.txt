@@ -1,0 +1,19 @@
+X0 S A
+S0 A X0
+S0 TA B
+S0 A S
+S0 S A
+S0 a
+S A X0
+S TA B
+S A S
+S S A
+S a
+A A X0
+A TA B
+A A S
+A S A
+A b
+A a
+B b
+TA a
