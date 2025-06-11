@@ -1,5 +1,7 @@
 from itertools import chain, combinations
 
+# adiciona um novo símbolo inicial a gramática
+
 
 def add_new_start_symbol(grammar):
     original_start = grammar["simbolo_inicial"]
@@ -10,6 +12,8 @@ def add_new_start_symbol(grammar):
     grammar["simbolo_inicial"] = new_start
     grammar["producoes"][new_start] = [[original_start]]
     return grammar
+
+# encontra variáveis anuláveis
 
 
 def find_nullable_variables(grammar):
@@ -25,10 +29,14 @@ def find_nullable_variables(grammar):
                         changed = True
     return nullable
 
+# gera todas as combinações não vazias de uma sequência
+
 
 def powerset(iterable):
     s = list(iterable)
     return chain.from_iterable(combinations(s, r) for r in range(1, len(s) + 1))
+
+# remove produções vazias da gramática
 
 
 def remove_epsilon_productions(grammar):
@@ -53,6 +61,8 @@ def remove_epsilon_productions(grammar):
         new_productions[start].append(['h'])
     grammar["producoes"] = new_productions
     return grammar
+
+# remove produções unitárias da gramática
 
 
 def remove_unit_productions(grammar):
@@ -85,6 +95,8 @@ def remove_unit_productions(grammar):
     grammar["producoes"] = new_productions
     return grammar
 
+# substitui terminais em regras com mais de um símbolo por variáveis
+
 
 def replace_terminals(grammar):
     prods = grammar["producoes"]
@@ -116,6 +128,8 @@ def replace_terminals(grammar):
         prods[left] = new_rights
     return grammar
 
+# transforma produções em forma binária
+
 
 def binarize_productions(grammar):
     prods = grammar["producoes"]
@@ -129,7 +143,6 @@ def binarize_productions(grammar):
             var = f"X{counter}"
             counter += 1
             tail_map[pair] = var
-            # register new variable and its production
             grammar["variaveis"].append(var)
             new_prods.setdefault(var, []).append(list(pair))
         return tail_map[pair]
@@ -139,18 +152,14 @@ def binarize_productions(grammar):
             if len(right) <= 2 or right == ['h']:
                 new_prods.setdefault(left, []).append(right)
             else:
-                # build chain from rightmost pair
                 prev = None
                 for i in range(len(right) - 1, 0, -1):
                     if prev is None:
-                        # rightmost pair
                         pair = (right[i-1], right[i])
                         prev = get_or_create(pair)
                     else:
-                        # intermediate pair
                         pair = (right[i-1], prev)
                         if i-1 == 0:
-                            # head binary rule
                             new_prods.setdefault(
                                 left, []).append([right[0], prev])
                         else:
